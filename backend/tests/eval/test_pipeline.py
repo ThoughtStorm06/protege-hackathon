@@ -4,7 +4,8 @@ import sys
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
-load_dotenv()
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
+load_dotenv(dotenv_path, override=True)
 
 # Add backend to path so we can import app modules
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))

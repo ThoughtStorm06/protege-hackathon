@@ -35,7 +35,8 @@ from app.app_utils.telemetry import (
 )
 from app.app_utils.typing import Feedback
 
-load_dotenv()
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+load_dotenv(dotenv_path, override=True)
 setup_telemetry()
 # Must run before get_fast_api_app to set the tracer provider resource.
 setup_agent_engine_telemetry()

@@ -2,19 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GraduationCap } from "lucide-react";
+import Image from "next/image";
 
 export default function Navbar() {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-50 border-b border-base-600/60 bg-base-900/80 backdrop-blur-lg">
-      <div className="flex w-full items-center justify-between px-16 py-4 lg:px-24">
-        <Link href="/" className="flex items-center gap-2 font-semibold text-white">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-accent-500 to-accent-600 shadow-glow">
-            <GraduationCap size={20} className="text-white" />
-          </div>
-          <span className="text-xl tracking-tight">Protégé</span>
+    <header className="sticky top-0 z-50 h-[90px] border-b border-base-600/60 bg-base-900/80 backdrop-blur-lg">
+      <div className="flex w-full items-center justify-between px-8 lg:px-14 py-2">
+        <Link href="/" className="flex items-center leading-none">
+          <Image
+            src="/protege-logo.png"
+            alt="Protégé Logo"
+            width={150}
+            height={42}
+            priority
+            className="block h-25 w-auto object-contain"
+          />
         </Link>
 
         <nav className="flex items-center gap-3">
