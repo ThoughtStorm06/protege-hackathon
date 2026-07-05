@@ -122,7 +122,7 @@ export default function SessionPage() {
     }
   };
 
-  const handleSend = async (text: string) => {
+  const handleSend = async (text: string, imageFile?: File, audioBlob?: Blob) => {
     const userMsg: Message = {
       id: crypto.randomUUID(),
       role: "user",
@@ -133,6 +133,33 @@ export default function SessionPage() {
     setMessages((prev) => [...prev, userMsg]);
     setIsTyping(true);
     setConcepts((c) => c + 1);
+
+    // Convert files to base64
+    const fileToBase64 = (blob: Blob): Promise<string> => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const resultString = reader.result as string;
+          const base64data = resultString ? resultString.split(",")[1] : "";
+          resolve(base64data);
+        };
+        reader.readAsDataURL(blob);
+      });
+    };
+
+    let imageBase64: string | undefined;
+    let imageMime: string | undefined;
+    if (imageFile) {
+      imageBase64 = await fileToBase64(imageFile);
+      imageMime = imageFile.type;
+    }
+
+    let audioBase64: string | undefined;
+    let audioMime: string | undefined;
+    if (audioBlob) {
+      audioBase64 = await fileToBase64(audioBlob);
+      audioMime = audioBlob.type;
+    }
 
     try {
       let activeSessionId = selectedSessionId;
@@ -160,7 +187,14 @@ export default function SessionPage() {
       const res = await fetch("http://127.0.0.1:8000/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: activeSessionId, message: text })
+        body: JSON.stringify({
+          session_id: activeSessionId,
+          message: text,
+          image_b64: imageBase64,
+          image_mime: imageMime,
+          audio_b64: audioBase64,
+          audio_mime: audioMime,
+        })
       });
       const data = await res.json();
       
