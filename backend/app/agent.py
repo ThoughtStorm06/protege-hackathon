@@ -6,7 +6,7 @@ from app.schemas import EvaluatorOutput, DraftOutput, MetricsOutput
 
 # Model configuration
 model_config = Gemini(
-    model="gemini-3.5-lite",
+    model="gemini-3.1-flash-lite",
     retry_options=types.HttpRetryOptions(attempts=3)
 )
 
@@ -22,7 +22,8 @@ student_agent = Agent(
         "2. Ask clarifying questions if the user's explanation is confusing, incomplete, or ambiguous.\n"
         "3. Show when you are confused and try to piece things together.\n"
         "4. Keep your responses concise (1-2 short paragraphs max) and conversational.\n"
-        "5. If the user greets you or says something off-topic, politely pivot back to asking what they want to teach you."
+        "5. If the user greets you or says something off-topic, politely pivot back to asking what they want to teach you.\n"
+        "6. The user may provide an image diagram or an audio explanation. Use these to help understand the concept."
     ),
 )
 
@@ -75,13 +76,15 @@ final_agent = Agent(
     name="final_agent",
     model=model_config,
     instruction=(
-        "You are the final review agent. Based on the extracted facts: {extracted_facts} "
-        "and the knowledge graph: {knowledge_graph}, evaluate the user's teaching performance.\n"
-        "Calculate scores (0-100) based on this strict rubric:\n"
-        "- Coverage (0-100): 0 if no facts. 100 if a broad, comprehensive overview of the implied topic was provided.\n"
-        "- Clarity (0-100): 0 if explanations were contradictory or confusing. 100 if concepts were explained simply and logically.\n"
-        "- Confidence (0-100): 0 if the user hesitated, guessed, or provided fragmented thoughts. 100 for assertive, clear statements.\n"
-        "If {extracted_facts} is empty, all scores MUST be 0."
+        "You are a master teacher reviewing a student's explanation. "
+        "Based on the transcript and the extracted knowledge graph, evaluate the student's mastery.\n"
+        "CRITICAL RULES:\n"
+        "1. Provide a highly detailed and comprehensive summary of their understanding (exactly 5 to 10 paragraphs). \n"
+        "   - Paragraph 1: Executive summary of what they successfully taught.\n"
+        "   - Paragraph 2: Strict critique of their teaching methodology (e.g., poor pacing, confusing analogies, missed assumptions).\n"
+        "   - Paragraph 3 and beyond: Deep dive into individual concepts. Break down the technical nuances of what they got right, what edge cases they completely missed, and provide extensive factual corrections. Expand heavily on how they could improve their mental models.\n"
+        "2. Calculate a score out of 100 based on clarity, depth, and accuracy.\n"
+        "3. Identify exactly 3 key strengths and 3 areas for improvement, referencing specific points they made."
     ),
     output_schema=MetricsOutput,
     output_key="final_metrics",

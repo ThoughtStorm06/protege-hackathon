@@ -51,6 +51,10 @@ class CreateSessionReq(BaseModel):
 class ChatReq(BaseModel):
     session_id: str
     message: str
+    image_b64: Optional[str] = None
+    image_mime: Optional[str] = None
+    audio_b64: Optional[str] = None
+    audio_mime: Optional[str] = None
 
 @app.post("/api/sessions")
 def create_session(req: CreateSessionReq, db: Session = Depends(get_db)):
@@ -99,7 +103,7 @@ async def chat(req: ChatReq, db: Session = Depends(get_db)):
     if db_session and db_session.topic == "New Session" and genai_client:
         try:
             topic_res = genai_client.models.generate_content(
-                model="gemini-3.5-lite",
+                model="gemini-3.1-flash-lite",
                 contents=f"Summarize this into a 2-4 word topic title (no quotes): {req.message}"
             )
             if topic_res.text:
@@ -142,7 +146,23 @@ async def chat(req: ChatReq, db: Session = Depends(get_db)):
     if not adk_session:
         adk_session = await chat_runner.session_service.create_session(app_name="app", user_id="default", session_id=req.session_id)
         
-    msg_content = types.Content(role="user", parts=[types.Part.from_text(text=prompt_with_context)])
+    msg_parts = [types.Part.from_text(text=prompt_with_context)]
+    import base64
+    if req.image_b64 and req.image_mime:
+        try:
+            image_bytes = base64.b64decode(req.image_b64)
+            msg_parts.append(types.Part.from_bytes(data=image_bytes, mime_type=req.image_mime))
+        except Exception as e:
+            print(f"Failed to decode image: {e}")
+            
+    if req.audio_b64 and req.audio_mime:
+        try:
+            audio_bytes = base64.b64decode(req.audio_b64)
+            msg_parts.append(types.Part.from_bytes(data=audio_bytes, mime_type=req.audio_mime))
+        except Exception as e:
+            print(f"Failed to decode audio: {e}")
+            
+    msg_content = types.Content(role="user", parts=msg_parts)
     
     try:
         async for event in chat_runner.run_async(user_id="default", session_id=req.session_id, new_message=msg_content):
@@ -176,6 +196,20 @@ async def evaluate_session(session_id: str, db: Session = Depends(get_db)):
     messages = db.exec(select(Message).where(Message.session_id == session_id).order_by(Message.created_at)).all()
     transcript = "\n".join([f"{m.role.upper()}: {m.content}" for m in messages])
     
+    # Update the topic based on the FULL transcript now that the session is ending
+    if genai_client and transcript:
+        try:
+            topic_res = genai_client.models.generate_content(
+                model="gemini-3.1-flash-lite",
+                contents=f"Read this conversation transcript and generate a highly accurate 2-4 word topic title (no quotes):\n\n{transcript}"
+            )
+            if topic_res.text:
+                db_session.topic = topic_res.text.strip()
+                db.add(db_session)
+                db.commit()
+        except Exception as e:
+            print(f"Failed to update topic at end of session: {e}")
+            
     # Trigger ADK pipeline. We set the transcript into the session state so agents can read it via {transcript} placeholder
     # First, initialize the session if it doesn't exist by doing a dummy run or manually creating it
     session_id_adk = f"eval_{session_id}"
@@ -202,7 +236,7 @@ async def evaluate_session(session_id: str, db: Session = Depends(get_db)):
         # Proceed with whatever state was generated so far
         
     # Retrieve results from state
-    adk_session = await pipeline_runner.session_service.get_session(session_id_adk)
+    adk_session = await pipeline_runner.session_service.get_session(app_name="app", user_id="default", session_id=session_id_adk)
     state = adk_session.state if adk_session else {}
     
     # Process Facts (Evaluator output)
